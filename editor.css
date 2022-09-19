@@ -1,0 +1,25 @@
+.color-item {
+  box-sizing: border-box;
+  border: solid 4px transparent;
+  width: 20px;
+  height: 20px;
+}
+
+.color-item.selected {
+  border: solid 4px rgba(255,255,255,0.8);
+}
+
+.toolbox{
+  width: 100px;
+  border: solid 1px #ccc;
+}
+.toolbox-item{
+  padding: 5px;
+  background-color: bisque;
+  font-size: 12px;
+  text-align: center;
+  width: 40px;
+}
+.toolbox-item.selected{
+ background-color: #ed9e40;
+}

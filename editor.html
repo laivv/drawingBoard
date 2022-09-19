@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <link href="https://cdn.bootcdn.net/ajax/libs/layer/3.5.1/theme/default/layer.min.css" rel="stylesheet">
+  <script src="https://cdn.bootcdn.net/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/vue/2.6.9/vue.min.js"></script>
+  <script src="https://cdn.ronghub.com/RongIMLib-3.0.7.2-dev.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/layer/2.3/layer.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/axios/0.21.1/axios.min.js"></script>
+
+  <script src="util.js"></script>
+  <script src="drawBoard.js"></script>
+  <script src="drawBoard-plugins.js"></script>
+  <link href="base.css" rel="stylesheet">
+  <link href="editor.css" rel="stylesheet">
+  <style>
+    body {
+      overflow: hidden;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="app" class="text-center mt-5 select-none">
+    <div class="iblock">
+
+      <!-- size -->
+      <div class="text-12 text-gray flex flex-item-center">
+        <span>尺寸：</span>
+        <input class="input" ref="width" style="width: 50px;" type="text" placeholder="宽">
+        <span>×</span>
+        <input class="input" ref="height" style="width: 50px;" type="text" placeholder="高">
+        <button class="btn btn-sm btn-primary ml-5" @click="sizeChange">修改</button>
+      </div>
+
+      <!-- color blocks -->
+      <div class="flex flex-item-center mt-10">
+        <span @click="colorSelect(item,index)" class="color-item pointer mr-10" :class="{ selected: color === item }"
+          :style="{ backgroundColor: `rgb(${item[0]},${item[1]},${item[2]})` }" v-for="(item, index) in colors">
+        </span>
+        <input type="color" style="height: 20px;" @change="colorChange"></input>
+      </div>
+
+
+      <!-- main -->
+      <div class="flex mt-10">
+        <!-- toolbox -->
+        <div class="toolbox flex-fixed mr-5 text-left">
+          <span v-for="item in shapes" :class="item === shape ? 'selected' : ''"
+            class="text-clip iblock toolbox-item pointer mt-5 ml-5" @click="brushChange(item)">{{item}}</span>
+        </div>
+        <!-- canvas-container -->
+        <div class="crosshair flex-fixed" ref="wrapper" style="border: solid 1px #ccc"> </div>
+      </div>
+
+
+      <!-- footer -->
+      <div class="mt-10">
+        <button class="btn btn-primary" @click="loadStandardImage">加载标准图片</button>
+        <button class="btn btn-primary" @click="loadluoImage">加载luo图片</button>
+        <button class="btn btn-primary" @click="downloadStandard">保存为标准图片</button>
+        <button class="btn btn-primary" @click="downloadImg">保存为luo图片</button>
+      </div>
+    </div>
+  </div>
+  <script>
+
+
+    var data = []
+    var drawBoard
+
+    new Vue({
+      el: "#app",
+      data: function () {
+        return {
+          colors: [
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 255],
+            [100, 0, 255],
+            [50, 70, 55],
+            [240, 90, 125],
+            [80, 32, 5],
+            [22, 153, 99],
+            [255, 87, 34],
+            [0, 188, 212],
+          ],
+          color: [0, 0, 0],
+          shapes: ['line', 'rect', 'circle', 'clear'],
+          shape: 'line',
+          width: 400,
+          height: 600,
+        }
+      },
+      mounted() {
+        drawBoard = new DrawBoard({ width: this.width, height: this.height })
+        this.$refs.wrapper.appendChild(drawBoard.getCanvas())
+        this.$refs.width.value = this.width
+        this.$refs.height.value = this.height
+      },
+      methods: {
+        brushChange(item) {
+          this.shape = item
+          drawBoard.setBrush({ type: item })
+        },
+        colorChange(e) {
+          drawBoard.setBrush({ color: e.target.value })
+        },
+        colorSelect(v) {
+          drawBoard.setBrush({ color: `rgb(${v.join()})` })
+          this.color = v
+        },
+        sizeChange() {
+          this.width = Number(this.$refs.width.value)
+          this.height = Number(this.$refs.height.value)
+          drawBoard = new DrawBoard({ width: this.width, height: this.height })
+          this.$refs.wrapper.replaceChild(drawBoard.getCanvas())
+        },
+        // 从记录的数据获取图片数据
+        getBinary() {
+          var ret = [
+            '00101110010011000101010101001111',
+            toComplexBinaryNumberString(this.width).padStart(40, '0'),
+            toComplexBinaryNumberString(this.height).padStart(40, '0')
+          ]
+          data.forEach(item => {
+            ret.push(
+              toComplexBinaryNumberString(item.x).padStart(40, '0'),
+              toComplexBinaryNumberString(item.y).padStart(40, '0'),
+              toBinaryNumberString(item.color[0]),
+              toBinaryNumberString(item.color[1]),
+              toBinaryNumberString(item.color[2]),
+            )
+          })
+          return ret.join('')
+        },
+        // 从canvas获取图片数据
+        getBinaryByCanvas() {
+          var ret = [
+            '00101110010011000101010101001111',
+            toComplexBinaryNumberString(this.width).padStart(40, '0'),
+            toComplexBinaryNumberString(this.height).padStart(40, '0')
+          ]
+          var imageData = drawBoard.getImageData()
+
+          eachImageData(imageData, function (x, y, r, g, b) {
+            if (r !== 0 || g !== 0 || b !== 0) {
+              ret.push(
+                toComplexBinaryNumberString(x).padStart(40, '0'),
+                toComplexBinaryNumberString(y).padStart(40, '0'),
+                toBinaryNumberString(r),
+                toBinaryNumberString(g),
+                toBinaryNumberString(b),
+              )
+            }
+          })
+          return ret.join('')
+        },
+        downloadStandard() {
+          drawBoard.getCanvas().toBlob(blob => {
+            var a = document.createElement('a')
+            a.href = window.URL.createObjectURL(blob)
+            a.target = "_blank"
+            a.download = "图片.png"
+            a.click()
+          })
+        },
+        // 下载图片
+        downloadImg() {
+          var binaryStr = this.getBinaryByCanvas()
+          var buffer = createBufferFromBinaryString(binaryStr)
+          downloadFileFromBuffer(buffer, '图片.luo')
+        },
+        // 加载标准图片
+        async loadStandardImage() {
+          var file = await openFilePicker()
+          var image = await readFileAsImage(file)
+          drawBoard.drawImage(image)
+        },
+        // 加载luo图片
+        async loadluoImage() {
+          var file = await openFilePicker()
+          var buffer = await readFileAsBuffer(file)
+          this.render(this.decode(buffer))
+        },
+        decodeText(buffer) {
+          var ret = []
+          for (var i = 0, len = buffer.length; i < len; i++) {
+            ret.push(String.fromCharCode(buffer[i]))
+          }
+          return ret.join('')
+        },
+        decodeSize(buffer) {
+          var ret = { width: [], height: [] }
+          buffer.forEach((bf, index) => {
+            if (index > 4) {
+              if (!(bf === 0 && !ret.height.length)) {
+                ret.height.push(bf)
+              }
+            } else {
+              if (!(bf === 0 && !ret.width.length)) {
+                ret.width.push(bf)
+              }
+            }
+          })
+          ret.width = Number(ret.width.join(''))
+          ret.height = Number(ret.height.join(''))
+          return ret
+        },
+        decodePoint(buffer) {
+          var getNumber = function (buffer) {
+            var ret = []
+            buffer.forEach(v => {
+              ret.push(v)
+            })
+            return Number(ret.join("").replace(/^0+/, ''))
+          }
+          return {
+            x: getNumber(buffer.slice(0, 5)),
+            y: getNumber(buffer.slice(5, buffer.length))
+          }
+        },
+        decode(buffer) {
+          buffer = new Uint8Array(buffer)
+          var headerBuffer = buffer.slice(0, 4)
+          if (this.decodeText(headerBuffer) !== '.LUO') {
+            layer.msg('不是luo图片')
+            return
+          }
+          const { width, height } = this.decodeSize(buffer.slice(4, 14))
+
+          var bodyBuffer = buffer.slice(14, buffer.length)
+          var ret = { width, height, data: [] }
+          for (var i = 0, len = bodyBuffer.length; i < len; i += 13) {
+            var objBuffer = bodyBuffer.slice(i, 13 + i)
+            var pointBuffer = objBuffer.slice(0, 10)
+            var rgb = objBuffer.slice(10, objBuffer.length)
+            var point = this.decodePoint(pointBuffer)
+            var x = point.x, y = point.y, r = rgb[0], g = rgb[1], b = rgb[2];
+            if (![x, y, r, g, b].find(a => a === undefined || a === null || a === '')) {
+              ret.data.push({ x, y, color: `rgb(${[r, g, b].join(',')})` })
+            }
+          }
+          return ret
+        },
+        render(imageInfo) {
+          var ctx = drawBoard.getCtx()
+          const data = imageInfo.data
+          for (var i = 0, len = data.length; i < len; i++) {
+            var piex = data[i]
+            ctx.beginPath()
+            ctx.fillStyle = piex.color
+            ctx.fillRect(piex.x, piex.y, 1, 1)
+          }
+        }
+
+      }
+
+    })
+  </script>
+
+  <script>
+
+  </script>
+</body>
+
+</html>
